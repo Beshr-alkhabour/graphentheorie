@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Graph Analyzer</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f5f5f5;
+      padding: 2rem;
+    }
+    h1 {
+      color: #333;
+    }
+    input[type="file"] {
+      margin-bottom: 1rem;
+    }
+    pre {
+      background: #fff;
+      border: 1px solid #ccc;
+      padding: 1rem;
+      overflow: auto;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <h1>Graphen Tool von Alkhabour 4BAIF</h1>
+  <label for="fileInput">lade eine CSV Datei hoch</label> <br><br>
+  <input type="file" id="fileInput" accept=".csv">
+  <pre id="output"></pre>
+
+  <script>
+
+function createGraph(adjMatrix) {
+  var graph = {};
+  graph.adjMatrix = adjMatrix;
+  graph.n = adjMatrix.length;
+
+  graph.bfs = function(start) {
+    var visited = new Array(graph.n).fill(false);
+    var dist = new Array(graph.n).fill(Infinity);
+    var queue = [start];
+    visited[start] = true;
+    dist[start] = 0;
+
+    while (queue.length > 0) {
+      var node = queue.shift();
+      for (var i = 0; i < graph.n; i++) {
+        if (graph.adjMatrix[node][i] && !visited[i]) {
+          visited[i] = true;
+          dist[i] = dist[node] + 1;
+          queue.push(i);
+        }
+      }
+    }
+    return dist;
+  };
+
+  graph.eccentricities = function() {
+    var ecc = [];
+    for (var i = 0; i < graph.n; i++) {
+      var distances = graph.bfs(i);
+      var max = 0;
+      for (var j = 0; j < distances.length; j++) {
+        if (distances[j] > max) max = distances[j];
+      }
+      ecc.push(max);
+    }
+    return ecc;
+  };
+
+  graph.radius = function() {
+    var ecc = graph.eccentricities();
+    var min = Infinity;
+    for (var i = 0; i < ecc.length; i++) {
+      if (ecc[i] < min) min = ecc[i];
+    }
+    return min;
+  };
+
+  graph.diameter = function() {
+    var ecc = graph.eccentricities();
+    var max = 0;
+    for (var i = 0; i < ecc.length; i++) {
+      if (ecc[i] > max) max = ecc[i];
+    }
+    return max;
+  };
+
+  graph.center = function() {
+    var ecc = graph.eccentricities();
+    var r = graph.radius();
+    var centerNodes = [];
+    for (var i = 0; i < ecc.length; i++) {
+      if (ecc[i] === r) centerNodes.push(i);
+    }
+    return centerNodes;
+  };
+
+  graph.dfs = function(start, visited) {
+    visited[start] = true;
+    for (var i = 0; i < graph.n; i++) {
+      if (graph.adjMatrix[start][i] && !visited[i]) {
+        graph.dfs(i, visited);
+      }
+    }
+  };
+
+  graph.components = function() {
+    var visited = new Array(graph.n).fill(false);
+    var comps = [];
+    for (var i = 0; i < graph.n; i++) {
+      if (!visited[i]) {
+        var compVisited = new Array(graph.n).fill(false);
+        graph.dfs(i, compVisited);
+        var comp = [];
+        for (var j = 0; j < graph.n; j++) {
+          if (compVisited[j]) {
+            comp.push(j);
+            visited[j] = true;
+          }
+        }
+        comps.push(comp);
+      }
+    }
+    return comps;
+  };
+
+  graph.dijkstra = function(start) {
+    var dist = new Array(graph.n).fill(Infinity);
+    var visited = new Array(graph.n).fill(false);
+    dist[start] = 0;
+
+    for (var count = 0; count < graph.n - 1; count++) {
+      var u = -1;
+      for (var i = 0; i < graph.n; i++) {
+        if (!visited[i] && (u === -1 || dist[i] < dist[u])) u = i;
+      }
+      if (u === -1) break;
+      visited[u] = true;
+
+      for (var v = 0; v < graph.n; v++) {
+        if (graph.adjMatrix[u][v] && dist[u] + graph.adjMatrix[u][v] < dist[v]) {
+          dist[v] = dist[u] + graph.adjMatrix[u][v];
+        }
+      }
+    }
+    return dist;
+  };
+
+  return graph;
+}
+
+function parseCSVToMatrix(csvText) {
+  var lines = csvText.trim().split('\n');
+  var matrix = [];
+  for (var i = 0; i < lines.length; i++) {
+    var row = lines[i].split(',');
+    var numRow = [];
+    for (var j = 0; j < row.length; j++) {
+      numRow.push(parseInt(row[j], 10));
+    }
+    matrix.push(numRow);
+  }
+  return matrix;
+}
+
+function displayResults(graph) {
+  var output = document.getElementById('output');
+  var text = '';
+  text += 'Exzentrizitäten: ' + graph.eccentricities().join(', ') + '\n';
+  text += 'Radius: ' + graph.radius() + '\n';
+  text += 'Durchmesser: ' + graph.diameter() + '\n';
+  text += 'Zentrum: ' + graph.center().join(', ') + '\n';
+  text += 'Komponenten: ' + JSON.stringify(graph.components()) + '\n';
+  text += 'Dijkstra von Knoten 0: ' + graph.dijkstra(0).join(', ') + '\n';
+  output.textContent = text;
+}
+
+document.getElementById('fileInput').addEventListener('change', function(e) {
+  var file = e.target.files[0];
+  var reader = new FileReader();
+  reader.onload = function() {
+    var matrix = parseCSVToMatrix(reader.result);
+    var graph = createGraph(matrix);
+    displayResults(graph);
+  };
+  reader.readAsText(file);
+});
+
+  </script>
+</body>
+</html>
